@@ -23,7 +23,11 @@ trait Validator[T] {
   def and(other: Validator[T]): Validator[T] = (value: T) => {
     val first = this.validate(value)
     val second = other.validate(value)
-    Either.cond(first.isRight && second.isRight, value, first.left.getOrElse("") + second.left.getOrElse(""))
+
+    if (first.isLeft && second.isLeft) Left(first.left.get + " and " + second.left.get)
+    else if (first.isLeft) first
+    else if (second.isLeft) second
+    else Right(value)
   }
 
   /**
@@ -36,21 +40,27 @@ trait Validator[T] {
   def or(other: Validator[T]): Validator[T] = (value: T) => {
     val first = this.validate(value)
     val second = other.validate(value)
-    Either.cond(first.isRight || second.isRight, value, first.left.getOrElse("") + second.left.getOrElse(""))
+
+    if (first.isLeft && second.isLeft) Left(first.left.get + " or " + second.left.get)
+    else Right(value)
   }
 }
 
 object Validator {
-  val positiveInt: Validator[Int] = (t: Int) => Either.cond(t > 0, t, "Should be positive.")
+  val positiveInt: Validator[Int] = (t: Int) => Either.cond(t > 0, t, "should be positive")
 
-  def lessThan(n: Int): Validator[Int] = (t: Int) => Either.cond(t < n, t, s"Should be less than $n.")
+  def lessThan(n: Int): Validator[Int] = (t: Int) => Either.cond(t < n, t, s"should be less than $n")
 
-  val nonEmpty: Validator[String] = (t: String) => Either.cond(t.nonEmpty, t, "Should not be empty.")
+  val nonEmpty: Validator[String] = (t: String) => Either.cond(t.nonEmpty, t, "should not be empty")
 
   val isPersonValid: Validator[Person] = (person: Person) => {
-    val validName: Either[String, String] = nonEmpty.validate(person.name)
-    val validAge: Either[String, Int] = positiveInt.and(lessThan(100)).validate(person.age)
-    Either.cond(validName.isRight && validAge.isRight, person, validName.left.getOrElse("") + validAge.left.getOrElse(""))
+    val validName = nonEmpty.validate(person.name)
+    val validAge = positiveInt.and(lessThan(100)).validate(person.age)
+
+    if (validName.isLeft && validAge.isLeft) Left(s"name ${validName.left.get} and age ${validAge.left.get}")
+    else if (validName.isLeft) Left(s"name ${validName.left.get}")
+    else if (validAge.isLeft) Left(s"age ${validAge.left.get}")
+    else Right(person)
   }
 
   implicit class IntImprovements(val n: Int) {

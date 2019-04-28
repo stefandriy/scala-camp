@@ -3,11 +3,11 @@ import org.scalatest._
 
 class ValidatorSpec extends FlatSpec with Matchers {
 
-  private val positiveIntError = "Should be positive."
+  private val positiveIntError = "should be positive"
 
-  private def lessThanError = (n: Int) => s"Should be less than $n."
+  private def lessThanError = (n: Int) => s"should be less than $n"
 
-  private val nonEmptyError = "Should not be empty."
+  private val nonEmptyError = "should not be empty"
 
   "Positive Int Validator" should "return valid result" in {
     positiveInt.validate(42) shouldEqual Right(42)
@@ -34,7 +34,7 @@ class ValidatorSpec extends FlatSpec with Matchers {
   "Positive Int AND Less Than Validator" should "return error message" in {
     positiveInt.and(lessThan(69)).validate(-42) shouldEqual Left(positiveIntError)
     positiveInt.and(lessThan(69)).validate(142) shouldEqual Left(lessThanError(69))
-    positiveInt.and(lessThan(-69)).validate(-42) shouldEqual Left(positiveIntError + lessThanError(-69))
+    positiveInt.and(lessThan(-69)).validate(-42) shouldEqual Left(s"$positiveIntError and ${lessThanError(-69)}")
   }
 
   "Positive Int OR Less Than Validator" should "return valid result" in {
@@ -44,7 +44,7 @@ class ValidatorSpec extends FlatSpec with Matchers {
   }
 
   "Positive Int OR Less Than Validator" should "return error message" in {
-    positiveInt.or(lessThan(-69)).validate(-42) shouldEqual Left(positiveIntError + lessThanError(-69))
+    positiveInt.or(lessThan(-69)).validate(-42) shouldEqual Left(s"$positiveIntError or ${lessThanError(-69)}")
   }
 
   "Non Empty Validator" should "return valid result" in {
@@ -60,10 +60,10 @@ class ValidatorSpec extends FlatSpec with Matchers {
   }
 
   "Person Validator" should "return error message" in {
-    isPersonValid.validate(Person("John", -42)) shouldEqual Left(positiveIntError)
-    isPersonValid.validate(Person("John", 142)) shouldEqual Left(lessThanError(100))
-    isPersonValid.validate(Person("", 42)) shouldEqual Left(nonEmptyError)
-    isPersonValid.validate(Person("", -42)) shouldEqual Left(nonEmptyError + positiveIntError)
-    isPersonValid.validate(Person("", 142)) shouldEqual Left(nonEmptyError + lessThanError(100))
+    isPersonValid.validate(Person("John", -42)) shouldEqual Left(s"age $positiveIntError")
+    isPersonValid.validate(Person("John", 142)) shouldEqual Left(s"age ${lessThanError(100)}")
+    isPersonValid.validate(Person("", 42)) shouldEqual Left(s"name $nonEmptyError")
+    isPersonValid.validate(Person("", -42)) shouldEqual Left(s"name $nonEmptyError and age $positiveIntError")
+    isPersonValid.validate(Person("", 142)) shouldEqual Left(s"name $nonEmptyError and age ${lessThanError(100)}")
   }
 }
