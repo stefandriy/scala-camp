@@ -1,3 +1,5 @@
+package util
+
 import org.scalatest._
 
 import scala.concurrent.ExecutionContext.Implicits.global
