@@ -62,9 +62,10 @@
 import akka.actor.ActorSystem
 import akka.http.scaladsl._
 import akka.stream.ActorMaterializer
-import domain.User
+import repository.UserRepository
 import rest.UserRoutes
-import schema.UserRepository
+import schema.UserTable
+import service.UserService
 import slick.jdbc.H2Profile.api._
 
 import scala.concurrent.duration._
@@ -77,30 +78,18 @@ object App {
     implicit val materializer: ActorMaterializer = ActorMaterializer()
     implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
+    val db = Database.forConfig("scala-camp")
+    val users = TableQuery[UserTable]
+    Await.result(db.run(users.schema.create), 1.second)
 
-    val repository = new UserRepository()
-
-    Await.result(repository.db.run(repository.users.schema.create), 1.second)
-
-
-    repository.save(User(0, "user1"))
-      .flatMap(tryInt => {
-        println(tryInt)
-        repository.save(User(0, "user2"))
-      })
-      .flatMap(tryInt => {
-        println(tryInt)
-        repository.getAll()
-      })
-      .onComplete(tryUsers => println(tryUsers.get))
-
-
-    val bindingFuture = Http().bindAndHandle(UserRoutes.routes, "localhost", 8080)
+    val repository = new UserRepository(db, users)
+    val service = new UserService(repository)
+    val bindingFuture = Http().bindAndHandle(new UserRoutes(service).routes, "localhost", 8080)
 
     println(s"Server online at http://localhost:8080/\nPress RETURN to stop...")
-    StdIn.readLine() // let it run until user presses return
+    StdIn.readLine()
     bindingFuture
-      .flatMap(_.unbind()) // trigger unbinding from the port
-      .onComplete(_ => system.terminate()) // and shutdown when done
+      .flatMap(_.unbind())
+      .onComplete(_ => system.terminate())
   }
 }

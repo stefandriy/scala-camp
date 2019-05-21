@@ -1,8 +1,14 @@
 package repository
 
+import java.util.concurrent.atomic.AtomicLong
+
 import domain.IotDevice
 
-trait IotDeviceRepository[F[_]] extends Repository {
+trait IotDeviceRepository[F[_]] {
+  private val sequence = new AtomicLong
+
+  protected def nextId(): Long = sequence.getAndIncrement
+
   def registerDevice(userId: Long, serialNumber: String): F[IotDevice]
 
   def getById(id: Long): F[Option[IotDevice]]

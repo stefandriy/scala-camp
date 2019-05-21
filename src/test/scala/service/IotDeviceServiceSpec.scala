@@ -1,41 +1,33 @@
 package service
 
-import cats.implicits._
+import domain.User
+import org.scalamock.scalatest.MockFactory
 import org.scalatest._
-import repository.{IotDeviceRepositoryFuture, IotDeviceRepositoryId, UserRepositoryFuture, UserRepositoryId}
+import repository.{IotDeviceRepositoryFuture, UserRepository}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
-class IotDeviceServiceSpec extends FlatSpec with Matchers {
+class IotDeviceServiceSpec extends FlatSpec with Matchers with MockFactory {
 
-  "IotDeviceServiceId" should "save IotDevice" in {
+  "IotDeviceService" should "save IotDevice" in {
+    val id = 1
     val username = "username"
+    val email = "user@email.test"
     val wrongId = 999
     val sn = "serial number"
-    val userRepository = new UserRepositoryId
-    val deviceService = new IotDeviceService(new IotDeviceRepositoryId, userRepository)
-    val savedUser = userRepository.registerUser(username)
-    val savedDevice = deviceService.registerDevice(savedUser.id, sn).right.get
-    savedDevice.userId shouldEqual savedUser.id
-    savedDevice.sn shouldEqual sn
-    deviceService.registerDevice(wrongId, sn).left.get shouldEqual "User doesn't exist"
-    deviceService.registerDevice(savedDevice.id, sn).left.get shouldEqual "Device serial number is already registered"
-  }
-
-  "IotDeviceServiceFuture" should "save IotDevice" in {
-    val username = "username"
-    val wrongId = 999
-    val sn = "serial number"
-    val userRepository = new UserRepositoryFuture
+    val userRepository = stub[UserRepository]
+    val user = User(id, username, None, email)
+    (userRepository.findById _).when(id).returns(Future.successful(Option(user)))
+    (userRepository.findById _).when(wrongId).returns(Future.successful(Option.empty))
     val deviceService = new IotDeviceService(new IotDeviceRepositoryFuture, userRepository)
-    val savedUser = await(userRepository.registerUser(username))
-    val savedDevice = await(deviceService.registerDevice(savedUser.id, sn)).right.get
-    savedDevice.userId shouldEqual savedUser.id
+
+    val savedDevice = await(deviceService.registerDevice(id, sn)).right.get
+    savedDevice.userId shouldEqual user.id
     savedDevice.sn shouldEqual sn
     await(deviceService.registerDevice(wrongId, sn)).left.get shouldEqual "User doesn't exist"
-    await(deviceService.registerDevice(savedDevice.id, sn)).left.get shouldEqual "Device serial number is already registered"
+    await(deviceService.registerDevice(id, sn)).left.get shouldEqual "Device serial number is already registered"
   }
 
   private def await[T](future: Future[T]): T = Await.result(future, 1.second)

@@ -1,31 +1,33 @@
 package rest
 
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import service.UserService
+import validation.Validator
+import validation.Validator.nonEmpty
 
-object UserRoutes {
+class UserRoutes(userService: UserService) extends JsonSupport {
+
+  private val userValidator: Validator[NewUser] = user => {
+    val validUsername = nonEmpty.validate(user.username)
+    if (validUsername.isLeft) Left(s"username ${validUsername.left.get}")
+    else Right(user)
+  }
+
   val routes: Route =
-    path("user") {
-      get {
-        complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Say hello to user</h1>"))
-      }
-    } ~
-      path("hello") {
-        get {
-          complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Say hello to akka-http</h1>"))
+    pathPrefix("users") {
+      post {
+        entity(as[NewUser]) { user =>
+          complete(userValidator.validate(user)
+            .map(_ => userService.registerUser(user.username, user.address, user.email)))
         }
-      }
-  //  pathPrefix("user") {
-  //      path("") {
-  //    get {
-  //      complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Say hello to user</h1>"))
-  //        }
-  //    }
-  //    path("hello") {
-  //      get {
-  //        complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Say hello to akka-http</h1>"))
-  //      }
-  //    }
-  //  }
+      } ~
+        get {
+          parameters("id".as[Long]) { id =>
+            complete {
+              userService.findById(id)
+            }
+          }
+        }
+    }
 }
