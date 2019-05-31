@@ -1,21 +1,21 @@
 package service
 
-import cats.Monad
-import cats.implicits._
 import domain.IotDevice
 import repository.{IotDeviceRepository, UserRepository}
 
-class IotDeviceService[F[_]](repository: IotDeviceRepository[F],
-                             userRepository: UserRepository[F])
-                            (implicit monad: Monad[F]) {
-  def registerDevice(userId: Long, sn: String): F[Either[String, IotDevice]] = {
-    userRepository.getById(userId)
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+
+class IotDeviceService(repository: IotDeviceRepository[Future], userRepository: UserRepository) {
+
+  def registerDevice(userId: Long, sn: String): Future[Either[String, IotDevice]] = {
+    userRepository.findById(userId)
       .flatMap(user => repository.getBySn(sn)
         .flatMap(device =>
           if (user.isEmpty)
-            monad.pure(Left("User doesn't exist"))
+            Future.successful(Left("User doesn't exist"))
           else if (device.isDefined)
-            monad.pure(Left("Device serial number is already registered"))
+            Future.successful(Left("Device serial number is already registered"))
           else
             repository.registerDevice(userId, sn).map(Right(_))))
   }

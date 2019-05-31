@@ -1,21 +1,27 @@
 package service
 
-import cats.Monad
-import cats.implicits._
 import domain.User
 import repository.UserRepository
+import util.Retrier
 
-class UserService[F[_]](repository: UserRepository[F])
-                       (implicit monad: Monad[F]) {
+import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 
-  def registerUser(username: String): F[Either[String, User]] = {
-    repository.getByUsername(username).flatMap({
-      case Some(user) => monad.pure(Left(s"User $user already exists."))
-      case None => repository.registerUser(username).map(Right(_))
-    })
-  }
+class UserService(repository: UserRepository)(implicit val ec: ExecutionContext) {
 
-  def getByUsername(username: String): F[Option[User]] = repository.getByUsername(username)
+  def registerUser(username: String, address: Option[String], email: String): Future[Either[String, User]] =
 
-  def getById(id: Long): F[Option[User]] = repository.getById(id)
+    repository.findByUsername(username).flatMap {
+      case Some(_) => Future.successful(Left(s"User with username $username already exists"))
+      case None => retry(repository.save(User(0, username, address, email)))
+        .map {
+          case Some(savedUser) => Right(savedUser)
+          case None => Left("Something went wrong")
+        }
+    }
+
+  def findById(id: Long): Future[Option[User]] = repository.findById(id)
+
+  private def retry(future: Future[Option[User]]): Future[Option[User]] =
+    Retrier.retry(() => future, (o: Option[User]) => o.isDefined, List(1.second, 2.seconds, 3.seconds))
 }
